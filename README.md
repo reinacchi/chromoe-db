@@ -11,7 +11,7 @@ cargo add chromoe-db
 ## Examples
 
 ```rs
-use chromoe_db::sqlite_driver::SQLiteDriver;
+use chromoe_db::driver::sqlite_driver::SQLiteDriver;
 use serde::Serialize;
 use serde_json::Value;
 
