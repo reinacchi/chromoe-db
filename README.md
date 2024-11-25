@@ -36,4 +36,4 @@ fn main() {
 
 ## License
 
-This library is licensed under [MIT](https://github.com/reinacchi/chromoe-db/blob/master/LICENSE)
+This library is licensed under [MIT](https://github.com/reinacchi/chromoe-db/blob/master/LICENSE).

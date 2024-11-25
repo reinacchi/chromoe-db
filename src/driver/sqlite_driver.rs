@@ -5,6 +5,22 @@ use serde_json::{from_str, to_string, Error as SerdeJsonError, Value};
 pub use crate::structure::DataSet;
 pub use crate::structure::SQLiteDriverOptions;
 
+/// SQLite database driver for storing and managing JSON data.
+///
+/// The `SQLiteDriver` provides methods for interacting with an SQLite database,
+/// including adding, retrieving, updating, and deleting JSON data in a specified table.
+///
+/// It abstracts the database operations and allows the user to interact with
+/// the database as if it were a key-value store, with the data being stored
+/// as serialised JSON.
+///
+/// # Fields
+///
+/// - `name`: The name of the SQLite database file.
+/// - `options`: Configuration options for the SQLite driver, including the
+///   database file name and table name.
+/// - `table`: The name of the table in the SQLite database to operate on.
+/// - `database`: The connection to the SQLite database.
 #[derive(Debug)]
 pub struct SQLiteDriver {
     pub name: String,
@@ -14,6 +30,15 @@ pub struct SQLiteDriver {
 }
 
 impl SQLiteDriver {
+    /// Creates a new instance of the `SQLiteDriver` with the provided options.
+    /// If no options are provided, it defaults to using `json.sqlite` as the
+    /// database file and `json` as the table name.
+    ///
+    /// # Parameters
+    /// - `options`: Optional configuration options for the SQLite database.
+    ///
+    /// # Returns
+    /// A `Result` containing either the `SQLiteDriver` instance or an error.
     pub fn new(options: Option<SQLiteDriverOptions>) -> Result<Self> {
         let options = options.unwrap_or_else(|| SQLiteDriverOptions {
             file_name: "json.sqlite".to_string(),
@@ -34,6 +59,13 @@ impl SQLiteDriver {
         Ok(driver)
     }
 
+    /// Prepares the SQLite database by creating the table if it doesn't already exist.
+    ///
+    /// # Parameters
+    /// - `table`: The name of the table to create.
+    ///
+    /// # Returns
+    /// A `Result` indicating success or failure.
     pub fn prepare(&self, table: &str) -> Result<()> {
         self.database.execute(
             &format!(
@@ -45,6 +77,16 @@ impl SQLiteDriver {
         Ok(())
     }
 
+    /// Adds a value to an existing entry or creates a new entry if it doesn't exist.
+    /// The value is added to the current value of the entry (if it exists).
+    ///
+    /// # Parameters
+    /// - `key`: The key for the entry to update.
+    /// - `value`: The value to add to the current entry.
+    ///
+    /// # Returns
+    /// The new value after adding `value` to the existing entry, or an error if
+    /// the value is not finite (e.g., NaN or infinity).
     pub fn add(&self, key: &str, value: f64) -> Result<f64> {
         let current_value: f64 = self.get(key)?.unwrap_or(0.0);
 
@@ -59,6 +101,11 @@ impl SQLiteDriver {
         Ok(new_value)
     }
 
+    /// Retrieves all data entries from the database as a vector of tuples.
+    ///
+    /// # Returns
+    /// A `Result` containing a vector of tuples where each tuple consists of
+    /// a key (`String`) and a corresponding value (`serde_json::Value`).
     pub fn all(&self) -> Result<Vec<(String, Value)>> {
         let mut stmt = self
             .database
@@ -79,6 +126,14 @@ impl SQLiteDriver {
         Ok(data)
     }
 
+    /// Deletes a specific entry by key. If the key refers to a nested value,
+    /// it will remove the nested field within the JSON data.
+    ///
+    /// # Parameters
+    /// - `key`: The key of the entry to delete.
+    ///
+    /// # Returns
+    /// A `Result` indicating whether the deletion was successful.
     pub fn delete(&self, key: &str) -> Result<bool> {
         if key.contains('.') {
             let split: Vec<&str> = key.split('.').collect();
@@ -92,10 +147,21 @@ impl SQLiteDriver {
         Ok(true)
     }
 
+    /// Deletes all entries in the database.
+    ///
+    /// # Returns
+    /// A `Result` indicating whether the deletion was successful.
     pub fn delete_all(&self) -> Result<bool> {
         self.delete_rows()
     }
 
+    /// Deletes a specific row from the table by key.
+    ///
+    /// # Parameters
+    /// - `key`: The key of the entry to delete.
+    ///
+    /// # Returns
+    /// A `Result` indicating whether the deletion was successful.
     fn delete_row_key(&self, key: &str) -> Result<bool> {
         self.database
             .prepare(&format!("DELETE FROM {} WHERE ID = ?", self.table))?
@@ -103,6 +169,10 @@ impl SQLiteDriver {
         Ok(true)
     }
 
+    /// Deletes all rows from the table.
+    ///
+    /// # Returns
+    /// A `Result` indicating whether the deletion was successful.
     fn delete_rows(&self) -> Result<bool> {
         self.database
             .prepare(&format!("DELETE FROM {}", self.table))?
@@ -110,6 +180,14 @@ impl SQLiteDriver {
         Ok(true)
     }
 
+    /// Retrieves the value for a given key, potentially deserialising it into the specified type.
+    ///
+    /// # Parameters
+    /// - `key`: The key of the entry to retrieve.
+    ///
+    /// # Returns
+    /// A `Result` containing an `Option` of the deserialised value, or an error if the
+    /// deserialisation fails.
     pub fn get<T>(&self, key: &str) -> Result<Option<T>>
     where
         T: serde::de::DeserializeOwned + Default,
@@ -124,6 +202,13 @@ impl SQLiteDriver {
         }
     }
 
+    /// Retrieves a value for a key, directly from the row.
+    ///
+    /// # Parameters
+    /// - `key`: The key of the entry to retrieve.
+    ///
+    /// # Returns
+    /// A `Result` containing the deserialised value, or `None` if the key doesn't exist.
     fn get_row_key<T>(&self, key: &str) -> Result<Option<T>>
     where
         T: serde::de::DeserializeOwned,
@@ -144,10 +229,25 @@ impl SQLiteDriver {
         }
     }
 
+    /// Checks if a given key exists in the database.
+    ///
+    /// # Parameters
+    /// - `key`: The key to check.
+    ///
+    /// # Returns
+    /// A `Result` containing a boolean indicating whether the key exists.
     pub fn has(&self, key: &str) -> Result<bool> {
         Ok(self.get::<Value>(key)?.is_some())
     }
 
+    /// Removes a specific value from an array stored at the given key.
+    ///
+    /// # Parameters
+    /// - `key`: The key of the entry where the array is stored.
+    /// - `value`: The value to remove from the array.
+    ///
+    /// # Returns
+    /// A `Result` containing the updated array after removal.
     pub fn pull<T>(&self, key: &str, value: T) -> Result<Vec<T>>
     where
         T: serde::de::DeserializeOwned + std::cmp::PartialEq + Clone + Serialize,
@@ -161,6 +261,14 @@ impl SQLiteDriver {
         Ok(arr)
     }
 
+    /// Appends a value to an array stored at the given key.
+    ///
+    /// # Parameters
+    /// - `key`: The key of the entry where the array is stored.
+    /// - `value`: The value to append to the array.
+    ///
+    /// # Returns
+    /// A `Result` containing the updated array after the value is appended.
     pub fn push<T>(&self, key: &str, value: T) -> Result<Vec<T>>
     where
         T: serde::de::DeserializeOwned + Clone + Serialize,
@@ -174,12 +282,20 @@ impl SQLiteDriver {
         Ok(arr)
     }
 
+    /// Sets or updates the value for a given key in the database.
+    ///
+    /// # Parameters
+    /// - `key`: The key for the entry.
+    /// - `value`: The value to store, which will be serialised into JSON.
+    ///
+    /// # Returns
+    /// A `Result` containing the value that was set.
     pub fn set<T>(&self, key: &str, value: T) -> Result<T>
     where
         T: Serialize,
     {
         let json = to_string(&value).map_err(|e: SerdeJsonError| {
-            RusqliteError::ToSqlConversionFailure(Box::new(e)) // Only pass the boxed error, no second argument needed
+            RusqliteError::ToSqlConversionFailure(Box::new(e))
         })?;
 
         let data_exists = self.has(key)?;
@@ -200,6 +316,15 @@ impl SQLiteDriver {
         Ok(value)
     }
 
+    /// Subtracts a value from an existing entry. If the entry does not exist,
+    /// it initialises it with the result.
+    ///
+    /// # Parameters
+    /// - `key`: The key of the entry to subtract from.
+    /// - `value`: The value to subtract from the current value.
+    ///
+    /// # Returns
+    /// The new value after subtraction.
     pub fn subtract(&self, key: &str, value: f64) -> Result<f64> {
         let current_value: f64 = self.get(key)?.unwrap_or(0.0);
 
