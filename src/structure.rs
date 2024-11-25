@@ -72,7 +72,7 @@ pub struct DataSet {
 /// };
 /// ```
 ///
-/// In this example, the SQLite database is located in the file `"database.db"`, and the
+/// In this example, the SQLite database is located in the file `"json.sqlite"`, and the
 /// driver will interact with the `"users"` table within that database.
 #[derive(Debug, Clone)]
 pub struct SQLiteDriverOptions {
