@@ -1,8 +1,8 @@
-use rusqlite::{params, Connection, OptionalExtension, Result};
+use rusqlite::{params, Connection, Error as RusqliteError, OptionalExtension, Result};
+use serde::de::DeserializeOwned;
 use serde::Serialize;
-use serde_json::{from_str, json, Error as SerdeJsonError, Value};
+use serde_json::{from_str, json, to_string, Error as SerdeJsonError, Value};
 
-pub use crate::structure::DataSet;
 pub use crate::structure::SQLiteDriverOptions;
 
 /// SQLite database driver for storing and managing JSON data.
@@ -91,7 +91,7 @@ impl SQLiteDriver {
         let current_value: f64 = self.get(key)?.unwrap_or(0.0);
 
         if !current_value.is_finite() {
-            return Err(rusqlite::Error::ToSqlConversionFailure(Box::new(
+            return Err(RusqliteError::ToSqlConversionFailure(Box::new(
                 std::io::Error::new(std::io::ErrorKind::InvalidData, "Non-finite value"),
             )));
         }
@@ -190,7 +190,7 @@ impl SQLiteDriver {
     /// deserialisation fails.
     pub fn get<T>(&self, key: &str) -> Result<Option<T>>
     where
-        T: serde::de::DeserializeOwned + Default,
+        T: DeserializeOwned + Default,
     {
         if key.contains('.') {
             let split: Vec<&str> = key.split('.').collect();
@@ -211,7 +211,7 @@ impl SQLiteDriver {
     /// A `Result` containing the deserialised value, or `None` if the key doesn't exist.
     fn get_row_key<T>(&self, key: &str) -> Result<Option<T>>
     where
-        T: serde::de::DeserializeOwned,
+        T: DeserializeOwned,
     {
         let mut stmt = self
             .database
@@ -250,7 +250,7 @@ impl SQLiteDriver {
     /// A `Result` containing the updated array after removal.
     pub fn pull<T>(&self, key: &str, value: T) -> Result<Vec<T>>
     where
-        T: serde::de::DeserializeOwned + std::cmp::PartialEq + Clone + Serialize,
+        T: DeserializeOwned + std::cmp::PartialEq + Clone + Serialize,
     {
         let mut arr: Vec<T> = self.get(key)?.unwrap_or_default();
 
@@ -271,7 +271,7 @@ impl SQLiteDriver {
     /// A `Result` containing the updated array after the value is appended.
     pub fn push<T>(&self, key: &str, value: T) -> Result<Vec<T>>
     where
-        T: serde::de::DeserializeOwned + Clone + Serialize,
+        T: DeserializeOwned + Clone + Serialize,
     {
         let mut arr: Vec<T> = self.get(key)?.unwrap_or_default();
 
@@ -309,9 +309,8 @@ impl SQLiteDriver {
         }
         *current = json!(value);
 
-        let json_string = serde_json::to_string(&root_value).map_err(|e: SerdeJsonError| {
-            rusqlite::Error::ToSqlConversionFailure(Box::new(e))
-        })?;
+        let json_string = to_string(&root_value)
+            .map_err(|e: SerdeJsonError| RusqliteError::ToSqlConversionFailure(Box::new(e)))?;
         self.database
             .prepare(&format!(
                 "INSERT INTO {} (ID, JSON) VALUES (?, ?) ON CONFLICT(ID) DO UPDATE SET JSON = ?",
@@ -335,7 +334,7 @@ impl SQLiteDriver {
         let current_value: f64 = self.get(key)?.unwrap_or(0.0);
 
         if !current_value.is_finite() {
-            return Err(rusqlite::Error::ToSqlConversionFailure(Box::new(
+            return Err(RusqliteError::ToSqlConversionFailure(Box::new(
                 std::io::Error::new(std::io::ErrorKind::InvalidData, "Non-finite value"),
             )));
         }
