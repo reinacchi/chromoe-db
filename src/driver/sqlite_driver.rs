@@ -23,9 +23,14 @@ pub use crate::structure::SQLiteDriverOptions;
 /// - `database`: The connection to the SQLite database.
 #[derive(Debug)]
 pub struct SQLiteDriver {
+    /// The name of the SQLite database file.
     pub name: String,
+    /// Configuration options for the SQLite driver, including the
+    /// database file and table name
     pub options: SQLiteDriverOptions,
+    /// The name of the table in the SQLite database to operate on.
     pub table: String,
+    /// The connection to the SQLite database.
     pub database: Connection,
 }
 
