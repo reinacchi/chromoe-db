@@ -1,5 +1,7 @@
 # ChromoeDB
 
+[![Discord Server](https://discord.com/api/guilds/754910336544538655/widget.png?style=shield)](https://discord.gg/fmxR8hUPSw)
+
 `chromoe-db` is an open-source, flexible, and scalable ecosystem designed for Rust-compatible database drivers. This library facilitates easy access, storage, and updating of data. Currently, all data is persistently stored using various supported databases, with **SQLite** being the only one available at this time.
 
 ## Installation
@@ -25,12 +27,13 @@ fn main() {
     let driver = SQLiteDriver::new(None).expect("Failed to initialise SQLite driver");
 
     driver.set("name", "Reina").expect("Failed to set value");
-    driver.set("world", Some( WorldData { time: "Day".to_string(), money: 15000 })).expect("Failed to set value");
+    driver.set("world", WorldData { time: "Day".to_string(), money: 15000 }).expect("Failed to set value");
 
     let world_value: Option<Value> = driver.get("world").expect("Failed to get value");
     println!("world: {:?}", world_value);
 
-    driver.push("cart", vec!["Weapon A".to_string(), "Weapon B".to_string()]).expect("Failed to push values");
+    driver.push("cart", ["Weapon A".to_string(), "Weapon B".to_string()]).expect("Failed to push values");
+    driver.add("world.money", 5000.0).expect("Failed to add value");
 }
 ```
 

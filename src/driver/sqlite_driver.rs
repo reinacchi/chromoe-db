@@ -1,6 +1,6 @@
-use rusqlite::{params, Connection, Error as RusqliteError, OptionalExtension, Result};
+use rusqlite::{params, Connection, OptionalExtension, Result};
 use serde::Serialize;
-use serde_json::{from_str, to_string, Error as SerdeJsonError, Value};
+use serde_json::{from_str, json, Error as SerdeJsonError, Value};
 
 pub use crate::structure::DataSet;
 pub use crate::structure::SQLiteDriverOptions;
@@ -290,30 +290,36 @@ impl SQLiteDriver {
     ///
     /// # Returns
     /// A `Result` containing the value that was set.
-    pub fn set<T>(&self, key: &str, value: T) -> Result<T>
+    pub fn set<T>(&self, key: &str, value: T) -> Result<()>
     where
         T: Serialize,
     {
-        let json = to_string(&value).map_err(|e: SerdeJsonError| {
-            RusqliteError::ToSqlConversionFailure(Box::new(e))
-        })?;
+        let parts: Vec<&str> = key.split('.').collect();
+        let root_key = parts[0];
 
-        let data_exists = self.has(key)?;
+        let mut root_value: Value = self.get(root_key)?.unwrap_or_else(|| json!({}));
 
-        if data_exists {
-            self.database
-                .prepare(&format!("UPDATE {} SET JSON = ? WHERE ID = ?", self.table))?
-                .execute(params![json, key])?;
-        } else {
-            self.database
-                .prepare(&format!(
-                    "INSERT INTO {} (ID, JSON) VALUES (?, ?)",
-                    self.table
-                ))?
-                .execute(params![key, json])?;
+        let mut current = &mut root_value;
+        for part in &parts[1..] {
+            current = current
+                .as_object_mut()
+                .unwrap()
+                .entry(part.to_string())
+                .or_insert(json!({}));
         }
+        *current = json!(value);
 
-        Ok(value)
+        let json_string = serde_json::to_string(&root_value).map_err(|e: SerdeJsonError| {
+            rusqlite::Error::ToSqlConversionFailure(Box::new(e))
+        })?;
+        self.database
+            .prepare(&format!(
+                "INSERT INTO {} (ID, JSON) VALUES (?, ?) ON CONFLICT(ID) DO UPDATE SET JSON = ?",
+                self.table
+            ))?
+            .execute(params![root_key, json_string, json_string])?;
+
+        Ok(())
     }
 
     /// Subtracts a value from an existing entry. If the entry does not exist,
