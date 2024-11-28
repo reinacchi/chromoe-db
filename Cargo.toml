@@ -1,7 +1,7 @@
 [package]
 name = "chromoe-db"
 description = "An open-source, flexible, and scalable ecosystem designed for Rust-compatible database drivers."
-version = "0.0.3-alpha"
+version = "0.1.0"
 edition = "2021"
 homepage = "https://github.com/reinacchi/chromoe-db"
 keywords = ["sqlite", "chromoe-db"]
