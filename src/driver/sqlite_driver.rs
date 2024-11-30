@@ -3,7 +3,7 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 use serde_json::{from_str, json, to_string, Error as SerdeJsonError, Value};
 
-pub use crate::structure::SQLiteDriverOptions;
+use crate::structure::SQLiteDriverOptions;
 
 /// SQLite database driver for storing and managing JSON data.
 ///
